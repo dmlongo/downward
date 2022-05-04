@@ -80,13 +80,6 @@ def delete_files(extension):
         if f.endswith(extension):
             os.remove(os.path.join(cwd, f))
 
-def get_hypertree_decompositions(action):
-    #f_name, map_pred_edge = generate_action_hypertree(action)
-    #hd = compute_decompositions(f_name)
-    #action.decomposition = parse_decompositions(hd, map_pred_edge)
-    #action.join_tree = get_join_tree(hd)
-    delete_files(".ast")
-    delete_files(".htd")
 
 def is_ground(rule):
     if len(rule.effect.args) > 0:
@@ -187,7 +180,7 @@ def split_into_hypertree(rule, name_generator):
     for l in leaves:
         current_layer.add(l.parent)
 
-    while not len(current_layer) == 0:
+    while (len(current_layer) > 0):
         next_layer = set()
         for node in current_layer:
             for child in node.children:
@@ -202,6 +195,11 @@ def split_into_hypertree(rule, name_generator):
             if node.parent is not None:
                 next_layer.add(node.parent)
         current_layer = next_layer
+        if len(current_layer) == 1:
+            element = list(current_layer)[0]
+            if element == htd[0]:
+                # if this is the root node, skip iteration
+                current_layer = set()
 
     # HACK! change effect of last new_rule head to be the effect of the original rule
     if len(new_rules) > 0:
