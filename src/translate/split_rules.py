@@ -3,6 +3,8 @@
 # several rules, one for each connected component and one high-level rule.
 
 from pddl_to_prolog import Rule, get_variables
+
+import decompositions
 import graph
 import greedy_join
 import pddl
@@ -28,6 +30,19 @@ def project_rule(rule, conditions, name_generator):
     projected_rule = Rule(conditions, effect)
     return projected_rule
 
+
+def get_rule_type(rule):
+    assert len(rule.conditions) == 2
+    left_args = rule.conditions[0].args
+    right_args = rule.conditions[1].args
+    eff_args = rule.effect.args
+    left_vars = {v for v in left_args if isinstance(v, int) or v[0] == "?"}
+    right_vars = {v for v in right_args if isinstance(v, int) or v[0] == "?"}
+    eff_vars = {v for v in eff_args if isinstance(v, int) or v[0] == "?"}
+    if left_vars & right_vars:
+            return 'join'
+    return 'product'
+
 def split_rule(rule, name_generator):
     important_conditions, trivial_conditions = [], []
     for cond in rule.conditions:
@@ -42,14 +57,25 @@ def split_rule(rule, name_generator):
     # trivial_conditions = [cond for cond in rule.conditions if not cond.args]
 
     components = get_connected_conditions(important_conditions)
+
     if len(components) == 1 and not trivial_conditions:
+        decompositions.split_into_hypertree(rule, name_generator)
         return split_into_binary_rules(rule, name_generator)
 
     projected_rules = [project_rule(rule, conditions, name_generator)
                        for conditions in components]
+
     result = []
     for proj_rule in projected_rules:
-        result += split_into_binary_rules(proj_rule, name_generator)
+        if len(proj_rule.conditions) == 1:
+            continue
+        new_proj_rules = decompositions.split_into_hypertree(proj_rule, name_generator)
+        for r in new_proj_rules:
+            if len(r.conditions) > 2:
+                result += split_into_binary_rules(r, name_generator)
+            else:
+                r.type = get_rule_type(r)
+                result += [r]
 
     conditions = ([proj_rule.effect for proj_rule in projected_rules] +
                   trivial_conditions)
