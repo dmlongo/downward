@@ -69,7 +69,6 @@ class Hypertree:
         return False
 
 def delete_previous_htd_files():
-    print("Deleting previous '.htd' files.")
     delete_files(".htd")
 
 
@@ -144,7 +143,6 @@ def compute_decompositions(file):
 
 
 def split_into_hypertree(rule, name_generator):
-    print("Using Hypertree decompositions. 'BalancedGo' is expected to be in the PATH.")
     delete_previous_htd_files()
     if len(rule.conditions) == 1 or is_ground(rule):
         return [rule]
@@ -195,11 +193,6 @@ def split_into_hypertree(rule, name_generator):
             if node.parent is not None:
                 next_layer.add(node.parent)
         current_layer = next_layer
-        if len(current_layer) == 1:
-            element = list(current_layer)[0]
-            if element == htd[0]:
-                # if this is the root node, skip iteration
-                current_layer = set()
 
     # HACK! change effect of last new_rule head to be the effect of the original rule
     if len(new_rules) > 0:
