@@ -32,6 +32,8 @@ def project_rule(rule, conditions, name_generator):
 
 
 def get_rule_type(rule):
+    if len(rule.conditions) == 1:
+        return 'project'
     assert len(rule.conditions) == 2
     left_args = rule.conditions[0].args
     right_args = rule.conditions[1].args
@@ -59,8 +61,15 @@ def split_rule(rule, name_generator):
     components = get_connected_conditions(important_conditions)
 
     if len(components) == 1 and not trivial_conditions:
-        decompositions.split_into_hypertree(rule, name_generator)
-        return split_into_binary_rules(rule, name_generator)
+        decomposed_rules = decompositions.split_into_hypertree(rule, name_generator)
+        split_rules = []
+        for r in decomposed_rules:
+            if len(r.conditions) > 2:
+                split_rules += split_into_binary_rules(r, name_generator)
+            else:
+                r.type = get_rule_type(r)
+                split_rules.append(r)
+        return split_rules
 
     projected_rules = [project_rule(rule, conditions, name_generator)
                        for conditions in components]

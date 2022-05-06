@@ -142,8 +142,23 @@ def compute_decompositions(file):
     return hd
 
 
+def create_rule_dfs(node, associated_new_relation, name_generator):
+    rules = []
+    effect_parent = associated_new_relation[node]
+    conditions = [effect_parent]
+    for child in node.children:
+        rules += create_rule_dfs(child, associated_new_relation, name_generator)
+        effect_child = associated_new_relation[child]
+        conditions.append(effect_child)
+    effect_variables = pddl_to_prolog.get_variables(conditions)
+    new_effect = pddl.Atom(next(name_generator), effect_variables)
+    associated_new_relation[node] = new_effect
+    new_rule = pddl_to_prolog.Rule(conditions, new_effect)
+    rules.append(new_rule)
+    return rules
+
 def split_into_hypertree(rule, name_generator):
-    delete_previous_htd_files()
+    #delete_previous_htd_files()
     if len(rule.conditions) == 1 or is_ground(rule):
         return [rule]
     file_name, map_predicate_to_edge = generate_hypertree(rule)
@@ -170,32 +185,19 @@ def split_into_hypertree(rule, name_generator):
             pos, _ = map_predicate_to_edge[node.cover[0]] # single element in the cover
             effect = rule.conditions[pos]
             associated_new_relation[node] = effect
-        if len(node.children) == 0:
-            leaves.add(node)
+
 
     # Now we go bottom-up creating the new rules
     current_layer = set()
     for l in leaves:
         current_layer.add(l.parent)
 
-    while (len(current_layer) > 0):
-        next_layer = set()
-        for node in current_layer:
-            for child in node.children:
-                effect_parent = associated_new_relation[node]
-                effect_child = associated_new_relation[child]
-                conditions = [effect_parent, effect_child]
-                effect_variables = pddl_to_prolog.get_variables(conditions)
-                new_effect = pddl.Atom(next(name_generator), effect_variables)
-                associated_new_relation[node] = new_effect
-                new_rule = pddl_to_prolog.Rule(conditions, new_effect)
-                new_rules.append(new_rule)
-            if node.parent is not None:
-                next_layer.add(node.parent)
-        current_layer = next_layer
+    new_rules += create_rule_dfs(htd[0], associated_new_relation, name_generator)
 
     # HACK! change effect of last new_rule head to be the effect of the original rule
     if len(new_rules) > 0:
-        new_rules[-1].effect = rule.effect
+        root_rule = new_rules[-1]
+        assert set(pddl_to_prolog.get_variables([root_rule.effect])) == set(pddl_to_prolog.get_variables([rule.effect]))
+        root_rule.effect = rule.effect
 
     return new_rules
