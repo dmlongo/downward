@@ -96,6 +96,9 @@ def generate_hypertree(rule):
         if len(p.args) == 0:
             continue
         atom_name = "{}-{}".format(p.predicate, str(counter))
+        if p.predicate == '=':
+            # special case
+            atom_name = "EQUALPREDICATE-{}".format(p.predicate, str(counter))
         map_predicate_to_edge[atom_name] = (idx, p)
         counter = counter + 1
         terms = ','.join([x for x in p.args if x[0] == '?']).replace('?', 'Var_')
@@ -201,7 +204,7 @@ def split_into_hypertree(rule, name_generator):
     # HACK! change effect of last new_rule head to be the effect of the original rule
     if len(new_rules) > 0:
         root_rule = new_rules[-1]
-        assert set(pddl_to_prolog.get_variables([root_rule.effect])) == set(pddl_to_prolog.get_variables([rule.effect]))
+        #assert set(pddl_to_prolog.get_variables([root_rule.effect])) == set(pddl_to_prolog.get_variables([rule.effect]))
         root_rule.effect = rule.effect
 
     return new_rules
