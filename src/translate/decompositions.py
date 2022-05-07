@@ -113,7 +113,6 @@ def compute_decompositions(file):
                        '-approx', '10',
                        '-det',
                        '-graph', file,
-                       '-complete',
                        '-cpu', '1',
                        '-gml', decomp_file_name]
 
@@ -142,15 +141,22 @@ def compute_decompositions(file):
     return hd
 
 
-def create_rule_dfs(node, associated_new_relation, name_generator):
+def create_rule_dfs(node, associated_new_relation, not_joined_relations, name_generator):
     rules = []
     effect_parent = associated_new_relation[node]
     conditions = [effect_parent]
     for child in node.children:
-        rules += create_rule_dfs(child, associated_new_relation, name_generator)
+        rules += create_rule_dfs(child, associated_new_relation, not_joined_relations, name_generator)
         effect_child = associated_new_relation[child]
         conditions.append(effect_child)
     effect_variables = pddl_to_prolog.get_variables(conditions)
+    relations_to_be_joined = []
+    for relation in not_joined_relations:
+        vars_in_relation = pddl_to_prolog.get_variables([relation])
+        if vars_in_relation.issubset(effect_variables):
+            relations_to_be_joined.append(relation)
+    not_joined_relations -= set(relations_to_be_joined)
+    conditions += relations_to_be_joined
     new_effect = pddl.Atom(next(name_generator), effect_variables)
     associated_new_relation[node] = new_effect
     new_rule = pddl_to_prolog.Rule(conditions, new_effect)
@@ -166,6 +172,7 @@ def split_into_hypertree(rule, name_generator):
 
     new_rules = []
     leaves = set()
+    not_joined_relations = set(rule.conditions)
     associated_new_relation = dict()
     # First we create a new rules for cases with multiple bags
     # We simultaneously also collect the leaves of the tree
@@ -175,6 +182,7 @@ def split_into_hypertree(rule, name_generator):
             for c in node.cover:
                 pos, _ = map_predicate_to_edge[c]
                 condition = rule.conditions[pos]
+                not_joined_relations.discard(condition)
                 conditions.append(condition)
             effect_variables = pddl_to_prolog.get_variables(conditions)
             effect = pddl.Atom(next(name_generator), effect_variables)
@@ -183,16 +191,12 @@ def split_into_hypertree(rule, name_generator):
             new_rules.append(new_rule)
         else:
             pos, _ = map_predicate_to_edge[node.cover[0]] # single element in the cover
-            effect = rule.conditions[pos]
-            associated_new_relation[node] = effect
+            condition = rule.conditions[pos]
+            not_joined_relations.remove(condition)
+            associated_new_relation[node] = condition
 
 
-    # Now we go bottom-up creating the new rules
-    current_layer = set()
-    for l in leaves:
-        current_layer.add(l.parent)
-
-    new_rules += create_rule_dfs(htd[0], associated_new_relation, name_generator)
+    new_rules += create_rule_dfs(htd[0], associated_new_relation, not_joined_relations, name_generator)
 
     # HACK! change effect of last new_rule head to be the effect of the original rule
     if len(new_rules) > 0:

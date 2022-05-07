@@ -77,6 +77,8 @@ def split_rule(rule, name_generator):
     result = []
     for proj_rule in projected_rules:
         if len(proj_rule.conditions) == 1:
+            proj_rule.type = get_rule_type(proj_rule)
+            result += [proj_rule]
             continue
         new_proj_rules = decompositions.split_into_hypertree(proj_rule, name_generator)
         for r in new_proj_rules:
